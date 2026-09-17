@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#6b5f00">
+  <title>Calculadora</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+
+  <style>
+    :root{
+      --btn-size: 23.8vw;
+      --gap: 1.1vw;
+      --num-bg: #fbd9d7;
+      --num-active: #fcb3b0;
+      --special-bg: #f9b9b6;
+      --special-active: #f49490;
+      --equal-bg: #6b5f00;
+      --equal-active: #8a7a00;
+      --bg-color: #fff8f7;
+      --font-color: #000;
+      --result-color: #6b5f00;
+      --font-family: Roboto, sans-serif;
+      --font-size: 13.1vw;
+      --result-font-size: 6.9vw;
+      --btn-font-size: 7.1vw;
+      --settings-opacity: 0.3;
+      --indicator-opacity: 0.4;
+      --indicator-size: 8px;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-family);
+      background: var(--bg-color);
+      -webkit-user-select: none;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* Loading Screen */
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #fff8f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    #loading.hidden {
+      display: none;
+    }
+
+    .spinner {
+      border: 4px solid #fbd9d7;
+      border-top: 4px solid #6b5f00;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #loading p {
+      color: #6b5f00;
+      font-size: 14px;
+    }
+
+    /* PWA Install Banner */
+    #installBanner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #6b5f00 0%, #8a7a00 100%);
+      color: white;
+      padding: 12px 15px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    #installBanner.show {
+      display: flex;
+    }
+
+    #installBanner .message {
+      flex: 1;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    #installBanner button {
+      background: white;
+      color: #6b5f00;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+
+    #installBanner .close-btn {
+      background: transparent;
+      color: white;
+      padding: 5px 10px;
+      font-size: 18px;
+    }
+
+    /* Calculator */
+    .calculator {
+      display: none;
+      margin-top: var(--btn-size);
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    .calculator.visible {
+      display: flex;
+    }
+
+    .display {
+      width: 100%;
+      padding: 2vw;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      min-height: calc(var(--btn-size) * 2);
+      position: relative;
+    }
+
+    /* Botón de configuración oculto */
+    .settings-btn {
+      position: absolute;
+      top: 2vw;
+      left: 2vw;
+      width: 40px;
+      height: 40px;
+      background: var(--bg-color);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      opacity: var(--settings-opacity);
+      transition: opacity 0.2s;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .settings-btn:active {
+      opacity: 0.8;
+    }
+
+    /* Indicador de dígitos */
+    .digit-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--indicator-size);
+      height: var(--indicator-size);
+      background: var(--font-color);
+      border-radius: 50%;
+      opacity: var(--indicator-opacity);
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 0 2px rgba(0,0,0,0.3);
+    }
+
+    .digit-indicator.show {
+      display: block;
+    }
+
+    .expression {
+      font-size: calc(var(--font-size) * 0.32);
+      color: var(--font-color);
+      opacity: 0.5;
+      word-wrap: break-word;
+      text-align: right;
+      line-height: 1.2;
+      font-family: var(--font-family);
+      min-height: 1.2em;
+      padding-bottom: 0.5vw;
+    }
+
+    .operation {
+      font-size: var(--font-size);
+      color: var(--font-color);
+      word-wrap: break-word;
+      text-align: right;
+      line-height: 1;
+      font-family: var(--font-family);
+    }
+
+    .result {
+      font-size: var(--result-font-size);
+      color: var(--result-color);
+      margin-top: 1vw;
+      line-height: 1;
+      font-family: var(--font-family);
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: var(--btn-size);
+      gap: var(--gap);
+      padding: var(--gap);
+      background: var(--bg-color);
+      box-sizing: border-box;
+    }
+
+    button {
+      border: none;
+      border-radius: 50%;
+      font-size: var(--btn-font-size);
+      font-weight: bold;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--num-bg);
+      color: var(--font-color);
+      cursor: pointer;
+      transition: background 0.05s, transform 0.03s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+      box-sizing: border-box;
+      justify-self: center;
+      align-self: center;
+      font-family: var(--font-family);
+      position: relative;
+    }
+
+    button:active {
+      background: var(--num-active);
+      transform: scale(0.97);
+    }
+
+    button.special {
+      background: var(--special-bg);
+    }
+
+    button.special:active {
+      background: var(--special-active);
+    }
+
+    .equal {
+      background: var(--equal-bg);
+      color: #fff;
+    }
+
+    .equal:active {
+      background: var(--equal-active);
+    }
+
+    /* Secret Menu */
+    #secretMenu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+
+    #secretMenu.show {
+      display: flex;
+    }
+
+    .menu-content {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 400px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .menu-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .menu-header h2 {
+      margin: 0;
+      color: #333;
+      font-size: 20px;
+    }
+
+    .menu-close {
+      background: #dc3545;
+      color: white;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .menu-item {
+      margin-bottom: 20px;
+    }
+
+    .menu-item label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .menu-item input[type="text"],
+    .menu-item input[type="number"],
+    .menu-item input[type="color"],
+    .menu-item input[type="range"],
+    .menu-item select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .menu-item input[type="color"] {
+      height: 45px;
+      cursor: pointer;
+    }
+
+    .color-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .color-row input[type="color"] {
+      flex: 0 0 60px;
+      width: 60px;
+    }
+
+    .color-row input[type="text"] {
+      flex: 1;
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+
+    .menu-item input[type="range"] {
+      padding: 5px;
+    }
+
+    .slider-value {
+      display: inline-block;
+      margin-left: 10px;
+      color: #6b5f00;
+      font-weight: bold;
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .switch-row label {
+      margin-bottom: 0;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 51px;
+      height: 31px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e9e9ea;
+      transition: 0.3s;
+      border-radius: 31px;
+    }
+
+    .switch .slider-toggle::before {
+      position: absolute;
+      content: "";
+      height: 27px;
+      width: 27px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .switch input:checked + .slider-toggle {
+      background-color: #34c759;
+    }
+
+    .switch input:checked + .slider-toggle::before {
+      transform: translateX(20px);
+    }
+
+    .menu-item.primary {
+      background: #fff3cd;
+      border: 2px solid #6b5f00;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    .menu-item.primary label {
+      color: #6b5f00;
+      font-size: 16px;
+    }
+
+    .clear-operation-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      background: #ff9800;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .clear-operation-btn:hover {
+      background: #f57c00;
+    }
+
+    .clear-operation-btn:active {
+      background: #ef6c00;
+      transform: scale(0.98);
+    }
+
+    .menu-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .menu-buttons button {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    .btn-save {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-reset {
+      background: #dc3545;
+      color: white;
+      font-size: 11px;
+      padding: 8px;
+      max-width: 120px;
+      align-self: center;
+    }
+
+    html, body { -ms-touch-action: manipulation; touch-action: manipulation; }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Cargando...</p>
+  </div>
+
+  <!-- PWA Install Banner -->
+  <div id="installBanner">
+    <div class="message">
+      📱 Instala esta app para una mejor experiencia
+    </div>
+    <button onclick="installPWA()">Instalar</button>
+    <button class="close-btn" onclick="closeInstallBanner()">×</button>
+  </div>
+
+  <!-- Secret Menu -->
+  <div id="secretMenu">
+    <div class="menu-content">
+      <div class="menu-header">
+        <h2>⚙️ Configuración</h2>
+        <button class="menu-close" onclick="closeSecretMenu()">×</button>
+      </div>
+
+      <div class="menu-item primary">
+        <label>⭐ Número a forzar:</label>
+        <input type="number" id="forcedNumber" placeholder="Ingresa número a forzar" step="0.01">
+        <button class="clear-operation-btn" onclick="clearCurrentOperation()">🗑️ Borrar suma actual</button>
+      </div>
+
+      <div class="menu-item">
+        <div class="switch-row">
+          <label>📱 Apariencia calculadora iPhone</label>
+          <label class="switch">
+            <input type="checkbox" id="iphoneStyleToggle" onchange="toggleIphoneStyle(this)">
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🎨 Color botones numéricos:</label>
+        <div class="color-row">
+          <input type="color" id="numBgColor" value="#fbd9d7" oninput="syncHex(this, 'numBgHex')">
+          <input type="text" id="numBgHex" placeholder="#FDBDD7" maxlength="7" oninput="syncColor(this, 'numBgColor')">
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🎨 Color botones de signos:</label>
+        <div class="color-row">
+          <input type="color" id="specialBgColor" value="#f9b9b6" oninput="syncHex(this, 'specialBgHex')">
+          <input type="text" id="specialBgHex" placeholder="#F9B9B6" maxlength="7" oninput="syncColor(this, 'specialBgColor')">
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🎨 Color botón igual:</label>
+        <div class="color-row">
+          <input type="color" id="equalBgColor" value="#6b5f00" oninput="syncHex(this, 'equalBgHex')">
+          <input type="text" id="equalBgHex" placeholder="#6B5F00" maxlength="7" oninput="syncColor(this, 'equalBgColor')">
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🎨 Color de fondo:</label>
+        <div class="color-row">
+          <input type="color" id="bgColor" value="#fff8f7" oninput="syncHex(this, 'bgColorHex')">
+          <input type="text" id="bgColorHex" placeholder="#FFF8F7" maxlength="7" oninput="syncColor(this, 'bgColor')">
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🎨 Color de fuente:</label>
+        <div class="color-row">
+          <input type="color" id="fontColor" value="#000000" oninput="syncHex(this, 'fontColorHex')">
+          <input type="text" id="fontColorHex" placeholder="#000000" maxlength="7" oninput="syncColor(this, 'fontColor')">
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <label>🔤 Fuente:</label>
+        <select id="fontFamily">
+          <option value="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif">SF Pro (iOS)</option>
+          <option value="Roboto, sans-serif">Roboto</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="'Courier New', monospace">Courier</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Comic Sans MS', cursive">Comic Sans</option>
+          <option value="Verdana, sans-serif">Verdana</option>
+        </select>
+      </div>
+
+      <div class="menu-item">
+        <label>📏 Tamaño de fuente (display): <span class="slider-value" id="fontSizeValue">100%</span></label>
+        <input type="range" id="fontSize" min="50" max="300" value="100"
+               oninput="document.getElementById('fontSizeValue').textContent = this.value + '%'">
+      </div>
+
+      <div class="menu-item">
+        <label>📏 Tamaño de fuente (botones): <span class="slider-value" id="btnFontSizeValue">100%</span></label>
+        <input type="range" id="btnFontSize" min="50" max="300" value="100"
+               oninput="document.getElementById('btnFontSizeValue').textContent = this.value + '%'">
+      </div>
+
+      <div class="menu-item">
+        <label>👁️ Opacidad del botón ⚙️: <span class="slider-value" id="settingsOpacityValue">30%</span></label>
+        <input type="range" id="settingsOpacity" min="0" max="100" value="30"
+               oninput="document.getElementById('settingsOpacityValue').textContent = this.value + '%'">
+      </div>
+
+      <div class="menu-item">
+        <label>👁️ Opacidad del indicador •: <span class="slider-value" id="indicatorOpacityValue">40%</span></label>
+        <input type="range" id="indicatorOpacity" min="0" max="100" value="40"
+               oninput="document.getElementById('indicatorOpacityValue').textContent = this.value + '%'">
+      </div>
+
+      <div class="menu-item">
+        <label>📏 Tamaño del indicador •: <span class="slider-value" id="indicatorSizeValue">8px</span></label>
+        <input type="range" id="indicatorSize" min="4" max="16" value="8"
+               oninput="document.getElementById('indicatorSizeValue').textContent = this.value + 'px'">
+      </div>
+
+      <div class="menu-buttons">
+        <button class="btn-save" onclick="saveSettings()">💾 Guardar</button>
+        <button class="btn-reset" onclick="resetSettings()">🔄 Restaurar</button>
+      </div>
+      <p style="text-align:center; color:#bbb; font-size:11px; margin-top:15px; margin-bottom:0;">
+        <span id="swVersion">...</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Calculator App -->
+  <div class="calculator" id="calculatorApp">
+    <div class="display">
+      <button class="settings-btn" onclick="openSecretMenu()">⚙️</button>
+      <div class="expression" id="expression"></div>
+      <div class="operation" id="operation">0</div>
+      <div class="result" id="result"></div>
+    </div>
+    <div class="buttons">
+      <button class="special" onclick="clearDisplay()">AC</button>
+      <button class="special" onclick="noop()">()</button>
+      <button class="special" onclick="noop()">%</button>
+      <button class="special" onclick="noop()">÷</button>
+      <button onclick="appendNumber(7)">7<span class="digit-indicator" id="indicator-7"></span></button>
+      <button onclick="appendNumber(8)">8<span class="digit-indicator" id="indicator-8"></span></button>
+      <button onclick="appendNumber(9)">9<span class="digit-indicator" id="indicator-9"></span></button>
+      <button class="special" onclick="noop()">×</button>
+      <button onclick="appendNumber(4)">4<span class="digit-indicator" id="indicator-4"></span></button>
+      <button onclick="appendNumber(5)">5<span class="digit-indicator" id="indicator-5"></span></button>
+      <button onclick="appendNumber(6)">6<span class="digit-indicator" id="indicator-6"></span></button>
+      <button class="special" onclick="activateTrap()">-</button>
+      <button onclick="appendNumber(1)">1<span class="digit-indicator" id="indicator-1"></span></button>
+      <button onclick="appendNumber(2)">2<span class="digit-indicator" id="indicator-2"></span></button>
+      <button onclick="appendNumber(3)">3<span class="digit-indicator" id="indicator-3"></span></button>
+      <button class="special" onclick="add()">+</button>
+      <button onclick="appendNumber(0)">0</button>
+      <button onclick="appendDot()">.</button>
+      <button onclick="backspace()">⌫</button>
+      <button class="equal" onclick="calculate()">=</button>
+    </div>
+  </div>
+
+  <script>
+    // ================================================
+    // PWA INSTALLATION
+    // ================================================
+    let deferredPrompt;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallBanner();
+    });
+
+    function showInstallBanner() {
+      const banner = document.getElementById('installBanner');
+      const dismissed = localStorage.getItem('installBannerDismissed');
+
+      // Si ya está instalada o el usuario la cerró, no mostrar
+      if (window.matchMedia('(display-mode: standalone)').matches || dismissed === 'true') {
+        return;
+      }
+
+      banner.classList.add('show');
+    }
+
+    window.installPWA = async function() {
+      if (!deferredPrompt) {
+        alert('La instalación no está disponible en este navegador.');
+        return;
+      }
+
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+
+      if (outcome === 'accepted') {
+        console.log('Usuario instaló la PWA');
+      }
+
+      deferredPrompt = null;
+      document.getElementById('installBanner').classList.remove('show');
+    }
+
+    window.closeInstallBanner = function() {
+      document.getElementById('installBanner').classList.remove('show');
+      localStorage.setItem('installBannerDismissed', 'true');
+    }
+
+    // Si ya está instalada, ajustar el margen
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      document.documentElement.style.setProperty('--btn-size', '23.8vw');
+    }
+
+    // ================================================
+    // SECRET MENU FUNCTIONS
+    // ================================================
+
+    // Limpiar la operación actual pero mantener el número forzado
+    window.clearCurrentOperation = function() {
+      currentOperation = "";
+      result.textContent = "";
+      const expressionEl = document.getElementById("expression");
+      if (expressionEl) expressionEl.textContent = "";
+      partialVisible = false;
+      justCalculated = false;
+      trapMode = false;
+      trapLocked = false;
+
+      // Ocultar indicadores
+      for (let i = 1; i <= 9; i++) {
+        const indicator = document.getElementById(`indicator-${i}`);
+        if (indicator) indicator.classList.remove('show');
+      }
+
+      updateDisplay();
+
+      // Mantener el menú abierto y mostrar confirmación
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = '✅ Suma borrada';
+      btn.style.background = '#28a745';
+
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '#ff9800';
+      }, 1500);
+    }
+
+    // Sincronizar color picker con input HEX
+    window.syncHex = function(colorInput, hexInputId) {
+      document.getElementById(hexInputId).value = colorInput.value.toUpperCase();
+    }
+
+    window.syncColor = function(hexInput, colorInputId) {
+      let hex = hexInput.value.trim();
+
+      // Agregar # si no lo tiene
+      if (hex && !hex.startsWith('#')) {
+        hex = '#' + hex;
+      }
+
+      // Validar formato HEX
+      if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        document.getElementById(colorInputId).value = hex;
+        hexInput.value = hex.toUpperCase();
+      }
+    }
+
+    window.openSecretMenu = function() {
+      const menu = document.getElementById('secretMenu');
+
+      // Cargar valores actuales en el formulario
+      const settings = loadSettings();
+
+      // Número forzado
+      document.getElementById('forcedNumber').value = settings.forcedNumber || '';
+
+      // Colores con HEX
+      document.getElementById('numBgColor').value = settings.numBgColor;
+      document.getElementById('numBgHex').value = settings.numBgColor.toUpperCase();
+
+      document.getElementById('specialBgColor').value = settings.specialBgColor;
+      document.getElementById('specialBgHex').value = settings.specialBgColor.toUpperCase();
+
+      document.getElementById('equalBgColor').value = settings.equalBgColor;
+      document.getElementById('equalBgHex').value = settings.equalBgColor.toUpperCase();
+
+      document.getElementById('bgColor').value = settings.bgColor;
+      document.getElementById('bgColorHex').value = settings.bgColor.toUpperCase();
+
+      document.getElementById('fontColor').value = settings.fontColor;
+      document.getElementById('fontColorHex').value = settings.fontColor.toUpperCase();
+
+      // Fuente y tamaños
+      document.getElementById('fontFamily').value = settings.fontFamily;
+      document.getElementById('fontSize').value = settings.fontSizePercent;
+      document.getElementById('fontSizeValue').textContent = settings.fontSizePercent + '%';
+
+      document.getElementById('btnFontSize').value = settings.btnFontSizePercent;
+      document.getElementById('btnFontSizeValue').textContent = settings.btnFontSizePercent + '%';
+
+      // Opacidad del engranaje
+      document.getElementById('settingsOpacity').value = settings.settingsOpacity;
+      document.getElementById('settingsOpacityValue').textContent = settings.settingsOpacity + '%';
+
+      // Opacidad del indicador
+      document.getElementById('indicatorOpacity').value = settings.indicatorOpacity;
+      document.getElementById('indicatorOpacityValue').textContent = settings.indicatorOpacity + '%';
+
+      // Tamaño del indicador
+      document.getElementById('indicatorSize').value = settings.indicatorSize;
+      document.getElementById('indicatorSizeValue').textContent = settings.indicatorSize + 'px';
+
+      // Apariencia calculadora iPhone
+      document.getElementById('iphoneStyleToggle').checked = !!settings.iphoneStyle;
+
+      menu.classList.add('show');
+
+      // Pedir versión al SW
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
+      }
+    }
+
+    window.closeSecretMenu = function() {
+      document.getElementById('secretMenu').classList.remove('show');
+    }
+
+    // Leer los valores actuales del formulario del menú
+    function getFormSettings() {
+      return {
+        forcedNumber: document.getElementById('forcedNumber').value,
+        numBgColor: document.getElementById('numBgColor').value,
+        specialBgColor: document.getElementById('specialBgColor').value,
+        equalBgColor: document.getElementById('equalBgColor').value,
+        bgColor: document.getElementById('bgColor').value,
+        fontColor: document.getElementById('fontColor').value,
+        fontFamily: document.getElementById('fontFamily').value,
+        fontSizePercent: document.getElementById('fontSize').value,
+        btnFontSizePercent: document.getElementById('btnFontSize').value,
+        settingsOpacity: document.getElementById('settingsOpacity').value,
+        indicatorOpacity: document.getElementById('indicatorOpacity').value,
+        indicatorSize: document.getElementById('indicatorSize').value,
+        iphoneStyle: document.getElementById('iphoneStyleToggle').checked
+      };
+    }
+
+    // Activar/desactivar la apariencia de calculadora iPhone
+    window.toggleIphoneStyle = function(checkbox) {
+      const preset = checkbox.checked ? {
+        numBgColor: '#333333',
+        specialBgColor: '#636366',
+        equalBgColor: '#ff9500',
+        bgColor: '#000000',
+        fontColor: '#ffffff',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif"
+      } : {
+        numBgColor: '#fbd9d7',
+        specialBgColor: '#f9b9b6',
+        equalBgColor: '#6b5f00',
+        bgColor: '#fff8f7',
+        fontColor: '#000000',
+        fontFamily: 'Roboto, sans-serif'
+      };
+
+      document.getElementById('numBgColor').value = preset.numBgColor;
+      document.getElementById('numBgHex').value = preset.numBgColor.toUpperCase();
+      document.getElementById('specialBgColor').value = preset.specialBgColor;
+      document.getElementById('specialBgHex').value = preset.specialBgColor.toUpperCase();
+      document.getElementById('equalBgColor').value = preset.equalBgColor;
+      document.getElementById('equalBgHex').value = preset.equalBgColor.toUpperCase();
+      document.getElementById('bgColor').value = preset.bgColor;
+      document.getElementById('bgColorHex').value = preset.bgColor.toUpperCase();
+      document.getElementById('fontColor').value = preset.fontColor;
+      document.getElementById('fontColorHex').value = preset.fontColor.toUpperCase();
+      document.getElementById('fontFamily').value = preset.fontFamily;
+
+      // Previsualizar de inmediato
+      applySettings(getFormSettings());
+    }
+
+    window.saveSettings = function() {
+      const settings = getFormSettings();
+      const forcedValue = settings.forcedNumber;
+
+      localStorage.setItem('calcSettings', JSON.stringify(settings));
+
+      // Actualizar el número forzado globalmente
+      if (forcedValue && forcedValue.trim() !== '') {
+        window.forced = parseFloat(forcedValue);
+      } else {
+        window.forced = null;
+      }
+
+      applySettings(settings);
+      closeSecretMenu();
+      alert('✅ Configuración guardada correctamente');
+    }
+
+    window.resetSettings = function() {
+      if (!confirm('¿Restaurar configuración por defecto?')) return;
+
+      localStorage.removeItem('calcSettings');
+
+      const defaults = {
+        forcedNumber: '',
+        numBgColor: '#fbd9d7',
+        specialBgColor: '#f9b9b6',
+        equalBgColor: '#6b5f00',
+        bgColor: '#fff8f7',
+        fontColor: '#000000',
+        fontFamily: 'Roboto, sans-serif',
+        fontSizePercent: '100',
+        btnFontSizePercent: '100',
+        settingsOpacity: '30',
+        indicatorOpacity: '40',
+        indicatorSize: '8',
+        iphoneStyle: false
+      };
+
+      applySettings(defaults);
+      window.forced = null;
+      closeSecretMenu();
+      alert('🔄 Configuración restaurada');
+    }
+
+    function loadSettings() {
+      const saved = localStorage.getItem('calcSettings');
+
+      if (saved) {
+        return JSON.parse(saved);
+      }
+
+      return {
+        forcedNumber: '',
+        numBgColor: '#fbd9d7',
+        specialBgColor: '#f9b9b6',
+        equalBgColor: '#6b5f00',
+        bgColor: '#fff8f7',
+        fontColor: '#000000',
+        fontFamily: 'Roboto, sans-serif',
+        fontSizePercent: '100',
+        btnFontSizePercent: '100',
+        settingsOpacity: '30',
+        indicatorOpacity: '40',
+        indicatorSize: '8',
+        iphoneStyle: false
+      };
+    }
+
+    function applySettings(settings) {
+      const root = document.documentElement;
+
+      // Colores
+      root.style.setProperty('--num-bg', settings.numBgColor);
+      root.style.setProperty('--num-active', adjustBrightness(settings.numBgColor, -10));
+      root.style.setProperty('--special-bg', settings.specialBgColor);
+      root.style.setProperty('--special-active', adjustBrightness(settings.specialBgColor, -10));
+      root.style.setProperty('--equal-bg', settings.equalBgColor);
+      root.style.setProperty('--equal-active', adjustBrightness(settings.equalBgColor, 15));
+      root.style.setProperty('--bg-color', settings.bgColor);
+      root.style.setProperty('--font-color', settings.fontColor);
+
+      // Fuente
+      root.style.setProperty('--font-family', settings.fontFamily);
+
+      // Tamaño de fuente del display
+      const baseFontSize = 13.1;
+      const baseResultSize = 6.9;
+      const multiplier = settings.fontSizePercent / 100;
+
+      root.style.setProperty('--font-size', (baseFontSize * multiplier) + 'vw');
+      root.style.setProperty('--result-font-size', (baseResultSize * multiplier) + 'vw');
+
+      // Tamaño de fuente de los botones
+      const baseBtnSize = 7.1;
+      const btnMultiplier = settings.btnFontSizePercent / 100;
+      root.style.setProperty('--btn-font-size', (baseBtnSize * btnMultiplier) + 'vw');
+
+      // Opacidad del botón de configuración
+      const opacity = settings.settingsOpacity / 100;
+      root.style.setProperty('--settings-opacity', opacity);
+
+      // Opacidad del indicador de dígitos
+      const indicatorOpacity = settings.indicatorOpacity / 100;
+      root.style.setProperty('--indicator-opacity', indicatorOpacity);
+
+      // Tamaño del indicador
+      root.style.setProperty('--indicator-size', settings.indicatorSize + 'px');
+    }
+
+    function adjustBrightness(color, percent) {
+      const num = parseInt(color.replace("#",""), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = (num >> 16) + amt;
+      const G = (num >> 8 & 0x00FF) + amt;
+      const B = (num & 0x0000FF) + amt;
+      return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 +
+        (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255))
+        .toString(16).slice(1);
+    }
+
+    // ================================================
+    // INICIAR APP (sin verificación de acceso)
+    // ================================================
+    function initApp() {
+      const loadingEl = document.getElementById('loading');
+      const calculatorEl = document.getElementById('calculatorApp');
+
+      loadingEl.classList.add('hidden');
+      calculatorEl.classList.add('visible');
+
+      // Cargar y aplicar configuración guardada
+      const settings = loadSettings();
+      applySettings(settings);
+
+      // Cargar número forzado si existe
+      if (settings.forcedNumber && settings.forcedNumber.trim() !== '') {
+        window.forced = parseFloat(settings.forcedNumber);
+      } else {
+        window.forced = null;
+      }
+
+      // Mostrar banner de instalación si aplica
+      setTimeout(() => {
+        if (deferredPrompt) {
+          showInstallBanner();
+        }
+      }, 1000);
+    }
+
+    // ================================================
+    // REGISTRO DEL SERVICE WORKER
+    // ================================================
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('✅ Service Worker registrado'))
+        .catch(err => console.error('❌ Error al registrar SW:', err));
+
+      navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data?.type === 'SW_VERSION') {
+          const el = document.getElementById('swVersion');
+          if (el) el.textContent = event.data.version;
+        }
+      });
+    }
+
+    // ================================================
+    // INICIAR APP
+    // ================================================
+    initApp();
+  </script>
+
+  <!-- Calculator Logic -->
+  <script>
+    let operation = document.getElementById("operation");
+    let result = document.getElementById("result");
+    let currentOperation = "";
+    let trapMode = false;
+    let trapLocked = false;
+    window.forced = null;
+    let partialVisible = false;
+    let lastOperation = "";
+    let lastPartialVisible = false;
+    let lastResultText = "";
+    let justCalculated = false;
+
+    // Actualizar indicador de dígitos
+    function updateDigitIndicator() {
+      // Ocultar todos los indicadores
+      for (let i = 1; i <= 9; i++) {
+        const indicator = document.getElementById(`indicator-${i}`);
+        if (indicator) indicator.classList.remove('show');
+      }
+
+      // Si hay un número forzado configurado
+      if (window.forced !== null && window.forced !== undefined) {
+        const currentValue = eval(currentOperation.replace(/\+$/, "")) || 0;
+        const needed = window.forced - currentValue;
+        const digits = Math.abs(needed).toString().replace('.', '').length;
+
+        // Mostrar indicador en el botón correspondiente (1-9)
+        if (digits >= 1 && digits <= 9) {
+          const indicator = document.getElementById(`indicator-${digits}`);
+          if (indicator) {
+            indicator.classList.add('show');
+          }
+        }
+      }
+    }
+
+    function updateDisplay() {
+      operation.textContent = currentOperation || "0";
+      if (!partialVisible) {
+        result.textContent = "";
+        return;
+      }
+      try {
+        let expr = currentOperation.replace(/[+\-×÷.]$/, "");
+        let calcResult = eval(expr);
+        if (!isNaN(calcResult)) {
+          result.textContent = Number(calcResult).toLocaleString("es-CO");
+        } else {
+          result.textContent = "";
+        }
+      } catch {
+        result.textContent = "";
+      }
+    }
+
+    function appendNumber(num) {
+      if (trapLocked || justCalculated) return;
+      if (trapMode) {
+        showTrapResult();
+        return;
+      }
+      let prevChar = currentOperation.slice(-1);
+      currentOperation += num;
+      if (prevChar === '+' && !partialVisible) {
+        partialVisible = true;
+      }
+      justCalculated = false;
+      updateDisplay();
+
+      // Actualizar indicador si estamos en modo trap
+      if (trapMode) {
+        updateDigitIndicator();
+      }
+    }
+
+    function appendDot() {
+      if (trapLocked || justCalculated) return;
+      currentOperation += ".";
+      justCalculated = false;
+      updateDisplay();
+    }
+
+    function add() {
+      if (trapLocked || justCalculated) return;
+      currentOperation += "+";
+      justCalculated = false;
+      updateDisplay();
+    }
+
+    function clearDisplay() {
+      if (trapLocked || justCalculated) return;
+
+      // Si está en modo trap (después de presionar -), no limpiar
+      if (trapMode) {
+        return;
+      }
+
+      currentOperation = "";
+      result.textContent = "";
+      partialVisible = false;
+      justCalculated = false;
+      updateDisplay();
+
+      // Ocultar indicadores
+      for (let i = 1; i <= 9; i++) {
+        const indicator = document.getElementById(`indicator-${i}`);
+        if (indicator) indicator.classList.remove('show');
+      }
+    }
+
+    function backspace() {
+      if (trapLocked || justCalculated) return;
+      if (justCalculated) {
+        currentOperation = lastOperation;
+        partialVisible = lastPartialVisible;
+        result.textContent = lastResultText;
+        justCalculated = false;
+        updateDisplay();
+        return;
+      }
+      currentOperation = currentOperation.slice(0, -1);
+      updateDisplay();
+    }
+
+    function activateTrap() {
+      if (trapLocked || justCalculated) return;
+      trapMode = true;
+      currentOperation += "+";
+      justCalculated = false;
+      updateDisplay();
+      updateDigitIndicator();
+    }
+
+    function showTrapResult() {
+      let actual = eval(currentOperation.replace(/\+$/, "")) || 0;
+      if (window.forced !== null && window.forced !== undefined) {
+        let needed = window.forced - actual;
+        currentOperation += needed;
+        updateDisplay();
+        trapLocked = true;
+      } else {
+        result.textContent = "⚠ No forzado";
+      }
+    }
+
+    function calculate() {
+      try {
+        // Si ya calculó y vuelve a presionar =, no hacer nada
+        if (justCalculated) return;
+
+        let calcResult = eval(currentOperation);
+        lastOperation = currentOperation;
+        lastPartialVisible = partialVisible;
+        lastResultText = result.textContent;
+
+        const expressionEl = document.getElementById("expression");
+
+        if (trapMode) {
+          // La expresión ya tiene el +número añadido por showTrapResult, solo limpiar +0 si existe
+          let expr = currentOperation.replace(/\+0$/, "");
+          expressionEl.textContent = expr;
+
+          operation.textContent = Number(window.forced).toLocaleString("es-CO");
+          result.textContent = "";
+          currentOperation = window.forced.toString();
+        } else {
+          // Guardar la expresión que llevó al resultado
+          expressionEl.textContent = currentOperation;
+
+          result.textContent = Number(calcResult).toLocaleString("es-CO");
+          operation.textContent = result.textContent;
+          currentOperation = calcResult.toString();
+        }
+        trapMode = false;
+        trapLocked = false;
+        partialVisible = false;
+        justCalculated = true;
+
+        // Ocultar indicadores
+        for (let i = 1; i <= 9; i++) {
+          const indicator = document.getElementById(`indicator-${i}`);
+          if (indicator) indicator.classList.remove('show');
+        }
+
+        updateDisplay();
+      } catch {
+        result.textContent = "Error";
+      }
+    }
+
+    function noop() {}
+  </script>
+</body>
+</html>
